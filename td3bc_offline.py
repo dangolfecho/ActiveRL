@@ -14,7 +14,7 @@ def parse_args():
     parser.add_argument("--target_smoothing_clip", default=0.5, type=float)
     parser.add_argument("--alpha", default=2.5, type=float)
     parser.add_argument("--update_actor_interval", default=2, type=int)
-    
+
     #Uncertainty Model Parameters
     parser.add_argument("--hidden_dim", default=256, type=int)
     parser.add_argument("--uncertainty_lr", default=3e-4, type=float)
@@ -65,19 +65,19 @@ def main(args):
                                     update_actor_interval=args.update_actor_interval,
                                     scaler="standard",
                                     use_gpu=args.device)
-    
+
     policy.build_with_dataset(dataset)
     metrics = {"rewards_raw": d3rlpy.metrics.scorer.evaluate_on_environment(env, n_trials=10)}
 
     #Setup Uncertainty Model
-    uncertainty_model = UncertaintyModel(state_dim = env.observation_space.shape[0], 
+    uncertainty_model = UncertaintyModel(state_dim = env.observation_space.shape[0],
                                          action_dim = env.action_space.shape[0],
                                          max_action = env.action_space.high[0],
                                          hidden_dim = args.hidden_dim,
                                          lr=args.uncertainty_lr,
                                          num_models=args.num_models,
                                          device=device)
-    
+
     #Train Policy
     print("======================================== TRAINING POLICY ========================================")
     policy.fit(dataset.episodes,
@@ -90,7 +90,7 @@ def main(args):
                experiment_name=experiment_name,
                show_progress=args.show_progress,
                with_timestamp=False)
-    
+
     #Save Policy
     policy.save_model(f"{logdir}/{experiment_name}/final.pt")
 
@@ -100,11 +100,11 @@ def main(args):
     replay_buffer = d3rlpy.online.buffers.ReplayBuffer(maxlen=int(5e6),
                                                        env=env,
                                                        episodes=dataset.episodes)
-    
+
     uncertainty_model.fit(replay_buffer,
                           batch_size=args.batch_size,
                           n_steps=args.n_steps)
-    
+
     #Save Uncertainty Model
     uncertainty_model.save(f"{logdir}/{experiment_name}/uncertainty")
 
@@ -112,5 +112,3 @@ def main(args):
 if __name__ == "__main__":
     args = parse_args()
     main(args)
-
-

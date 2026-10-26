@@ -75,7 +75,7 @@ class UncertaintyModel(nn.Module):
 		loss.backward()
 		optim.step()
 
-	def fit(self, replay_buffer: d3rlpy.online.buffers.ReplayBuffer, batch_size = 256, n_steps = int(1e5)):
+	def fit(self, replay_buffer: d3rlpy.dataset.ReplayBuffer, batch_size = 256, n_steps = int(1e5)):
 		#Train the models
 		for i in range(n_steps):
 			#Sample a batch
@@ -184,7 +184,7 @@ class UncertaintyModel(nn.Module):
 
 
 class Collector:
-	def __init__(self, env: gym.Env, policy: d3rlpy.algos.AlgoBase, unc_model: UncertaintyModel, config: argparse.Namespace):
+	def __init__(self, env: gym.Env, policy: d3rlpy.base.LearnableBase, unc_model: UncertaintyModel, config: argparse.Namespace):
 		self.env = env
 		self.policy = policy
 		self.unc_model = unc_model
