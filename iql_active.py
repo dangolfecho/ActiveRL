@@ -123,16 +123,17 @@ def main(args):
     dataset, env = d3rlpy.datasets.get_minari(dataset_name,
             action_space=d3rlpy.ActionSpace.CONTINUOUS,
             online = False)
-    print(type(dataset))
     active_states = torch.from_numpy(dataset.observations).float()
-    env.seed(args.seed)
-
+    #env.reset(args.seed)
+    env.reset()
 
     #Load Pruned Dataset if specified
+    '''
     if args.data != "":
         dataset_path = f"DATASETS/{args.env[:-3]}/{args.data}.h5"
         dataset = d3rlpy.dataset.MDPDataset.load(dataset_path)
         print(f"[IQL ACTIVE] Loaded Custom Dataset: {args.data}")
+    '''
 
     #Reduce Dataset Size
     if dataset.observations.shape[0] > args.active_data_max_size:
@@ -142,22 +143,25 @@ def main(args):
     device = torch.device(f"cuda:{args.device}")
 
     #Setup policy and metrics
-    policy = d3rlpy.algos.IQL(actor_learning_rate=args.actor_lr,
+    policy = d3rlpy.algos.IQLConfig(actor_learning_rate=args.actor_lr,
                                     critic_learning_rate=args.critic_lr,
                                     batch_size=args.batch_size,
                                     weight_temp=args.weight_temp,
                                     max_weight=args.max_weight,
                                     expectile=args.expectile,
-                                    reward_scaler=d3rlpy.preprocessing.ConstantShiftRewardScaler(shift=-1.0),
-                                    use_gpu=args.device)
+                                    reward_scaler=d3rlpy.preprocessing.ConstantShiftRewardScaler(shift=-1.0),)
+                                    #use_gpu=args.device)
     
-    policy.create_impl(dataset.get_observation_shape(), dataset.get_action_size())
+    #policy.create_impl(dataset.get_observation_shape(), dataset.get_action_size())
 
-    metrics = {"rewards_raw": d3rlpy.metrics.scorer.evaluate_on_environment(env, n_trials=args.n_trial)}
+    #metrics = {"rewards_raw": d3rlpy.metrics.scorer.evaluate_on_environment(env, n_trials=args.n_trial)}
+    evaluators = {'environment':
+            d3rlpy.metrics.EnvironmentEvaluator(env)}
+    logger_adapter = d3rlpy.logging.FileAdapterFactory()
     
     
     #Learning Rate Scheduler
-    lr_scheduler = optim.lr_scheduler.CosineAnnealingLR(policy.impl._actor_optim, T_max=args.n_steps*args.active_epochs)
+    #lr_scheduler = optim.lr_scheduler.CosineAnnealingLR(policy.actor_optim_factory, T_max=args.n_steps*args.active_epochs)
 
     def lr_scheduler_step(algo, epoch, total_step):
         lr_scheduler.step()
@@ -238,12 +242,12 @@ def main(args):
                     n_steps=args.n_steps,
                     n_steps_per_epoch=args.n_steps_per_epoch,
                     eval_episodes=dataset.episodes,
-                    scorers=metrics,
+                    #scorers=metrics,
                     save_interval=10,
                     logdir=f"{logdir}/{experiment_name}",
                     experiment_name=f"Epoch_{epoch}",
                     show_progress=args.show_progress,
-                    callback=lr_scheduler_step,
+                    #callback=lr_scheduler_step,
                     with_timestamp=False)
         
         #Save Policy
