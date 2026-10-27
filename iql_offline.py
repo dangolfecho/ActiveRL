@@ -4,7 +4,7 @@ from utils_uncertainty import UncertaintyModel
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--env', type=str, default="antmaze-umaze-v0")
+    parser.add_argument('--env', type=str, default="Hover")
     parser.add_argument("--data", type=str, default = "")
 
     #IQL Parameters
@@ -37,7 +37,7 @@ def parse_args():
 
 def main(args):
     #Directories
-    logdir = f"IQL_OFFLINE/{args.env}/"
+    logdir = f"IQL_OFFLINE/{args.env}"
     experiment_name = f"native" if args.data == "" else args.data
 
 
@@ -45,35 +45,41 @@ def main(args):
     seed_everything(args.seed)
 
     #Get Environment and Dataset
-    dataset, env = d3rlpy.datasets.get_d4rl(args.env)
-    env.seed(args.seed)
+    dataset_name = 'QuadX-Hover-v4/dataset-14-combined-v0'
+    dataset, env = d3rlpy.datasets.get_minari(dataset_name,
+                                              action_space=d3rlpy.ActionSpace.CONTINUOUS,
+                                              online = False)
+    env.reset()
+    #dataset, env = d3rlpy.datasets.get_d4rl(args.env)
+    #env.seed(args.seed)
 
-
+    '''
     if args.data != "":
         dataset_path = f"DATASETS/{args.env[:-3]}/{args.data}.h5"
         dataset = d3rlpy.dataset.MDPDataset.load(dataset_path)
         print(f"[IQL OFFLINE] Loaded Custom Dataset: {args.data}")
+    '''
 
     #Fix device
     device = torch.device(f"cuda:{args.device}")
 
     #Setup policy and metrics
-    reward_scaler = d3rlpy.preprocessing.ConstantShiftRewardScaler(shift=-1.0)
-    policy = d3rlpy.algos.IQL(actor_learning_rate=args.actor_lr,
+    #reward_scaler = d3rlpy.preprocessing.ConstantShiftRewardScaler(shift=-1.0)
+    policy = d3rlpy.algos.IQLConfig(actor_learning_rate=args.actor_lr,
                                     critic_learning_rate=args.critic_lr,
                                     batch_size=args.batch_size,
                                     weight_temp=args.weight_temp,
                                     max_weight=args.max_weight,
-                                    expectile=args.expectile,
-                                    reward_scaler=reward_scaler,
-                                    use_gpu=args.device)
+                                    expectile=args.expectile,).create()
+                                    #reward_scaler=reward_scaler,
+                                    #use_gpu=args.device)
     
-    policy.create_impl(dataset.get_observation_shape(), dataset.get_action_size())
-    metrics = {"rewards_raw": d3rlpy.metrics.scorer.evaluate_on_environment(env, n_trials=10)}
+    #policy.create_impl(dataset.get_observation_shape(), dataset.get_action_size())
+    #metrics = {"rewards_raw": d3rlpy.metrics.scorer.evaluate_on_environment(env, n_trials=10)}
     
     
     #Learning Rate Scheduler
-    lr_scheduler = optim.lr_scheduler.CosineAnnealingLR(policy.impl._actor_optim, T_max=args.n_steps)
+    #lr_scheduler = optim.lr_scheduler.CosineAnnealingLR(policy.impl._actor_optim, T_max=args.n_steps)
     def lr_scheduler_step(algo, epoch, total_step):
         lr_scheduler.step()
 
@@ -108,7 +114,8 @@ def main(args):
 
     #Train Uncertainty Model
     print("======================================== TRAINING UNCERTAINTY MODELS ========================================")
-    replay_buffer = d3rlpy.online.buffers.ReplayBuffer(maxlen=int(5e6),
+    buffer = d3rlpy.dataset.InfiniteBuffer()
+    replay_buffer = d3rlpy.dataset.ReplayBuffer(buffer=buffer,
                                                        env=env,
                                                        episodes=dataset.episodes)
     

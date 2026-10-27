@@ -5,12 +5,13 @@ from utils_dataset import reduce_dataset
 from utils_uncertainty import UncertaintyModel
 from utils_uncertainty import Collector
 from utils_dataset import dataset_from_episode_list
+from tqdm import tqdm
 
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--env', type=str, default="antmaze-medium-diverse-v0")
-    parser.add_argument("--data", type=str, default = "random30")
+    parser.add_argument('--env', type=str, default="Hover")
+    parser.add_argument("--data", type=str, default = "")
 
     #IQL Parameters
     parser.add_argument("--actor_lr", default=3e-4, type=float)
@@ -112,14 +113,16 @@ def main(args):
     setup_directory(experiment_root)
 
     #Get Constants for plotting
-    xlim, ylim, goal = get_environment_constants(args.env)
+    #xlim, ylim, goal = get_environment_constants(args.env)
 
     #Seed Everything
     seed_everything(args.seed)
 
     #Get Environment and Dataset
     #dataset, env = d3rlpy.datasets.get_d4rl(args.env)
-    dataset_name = 'QuadX-Hover-v4/dataset-14-0-20-v3'
+    #dataset_name = 'QuadX-Hover-v4/dataset-14-0-20-v3'
+    #dataset_name = 'QuadX-Hover-v4/dataset-14-60-80-v1'
+    dataset_name = 'QuadX-Hover-v4/dataset-14-combined-v0'
     dataset, env = d3rlpy.datasets.get_minari(dataset_name,
             action_space=d3rlpy.ActionSpace.CONTINUOUS,
             online = False)
@@ -136,8 +139,8 @@ def main(args):
     '''
 
     #Reduce Dataset Size
-    if dataset.observations.shape[0] > args.active_data_max_size:
-        dataset = reduce_dataset(dataset, target_size=args.active_data_max_size)
+    #if dataset.observations.shape[0] > args.active_data_max_size:
+    #    dataset = reduce_dataset(dataset, target_size=args.active_data_max_size)
 
     #Fix device
     device = torch.device(f"cuda:{args.device}")
@@ -149,7 +152,7 @@ def main(args):
                                     weight_temp=args.weight_temp,
                                     max_weight=args.max_weight,
                                     expectile=args.expectile,
-                                    reward_scaler=d3rlpy.preprocessing.ConstantShiftRewardScaler(shift=-1.0),)
+                                    reward_scaler=d3rlpy.preprocessing.ConstantShiftRewardScaler(shift=-1.0),).create()
                                     #use_gpu=args.device)
     
     #policy.create_impl(dataset.get_observation_shape(), dataset.get_action_size())
@@ -165,9 +168,6 @@ def main(args):
 
     def lr_scheduler_step(algo, epoch, total_step):
         lr_scheduler.step()
-
-    
-
 
     #Setup Uncertainty Model
     uncertainty_model = UncertaintyModel(state_dim = env.observation_space.shape[0], 
@@ -192,22 +192,24 @@ def main(args):
 
     #Load Policy and Uncertainty Model
     offline_experiment = "native" if args.data == "" else args.data
-    policy.load_model(f"IQL_OFFLINE/{args.env}/{offline_experiment}/final.pt")
+    policy.build_with_env(env)
+    policy.load_model("models/dataset-14-combined-v0_IQL_512.pt")
+    #policy.load_model(f"IQL_OFFLINE/{args.env}/{offline_experiment}/final.pt")
     uncertainty_model.load(f"IQL_OFFLINE/{args.env}/{offline_experiment}/uncertainty")
 
     #Reset Learning Rate
-    for g in policy.impl._actor_optim.param_groups:
-        g["lr"] = args.actor_lr
+    #for g in policy.impl._actor_optim.param_groups:
+        #g["lr"] = args.actor_lr
 
 
     #Plot Initial Uncertainty
-    if args.env not in locomotion_envs:
-        uncertainties = uncertainty_model.get_uncertainty_batched(active_states)
-        plot_states_uncertainties(active_states.numpy(), uncertainties, xlim, ylim, goal, f"{logdir}/{experiment_name}/uncertainty_initial.jpg")
+    #if args.env not in locomotion_envs:
+        #uncertainties = uncertainty_model.get_uncertainty_batched(active_states)
+        #plot_states_uncertainties(active_states.numpy(), uncertainties, xlim, ylim, goal, f"{logdir}/{experiment_name}/uncertainty_initial.jpg")
 
     #Plot Initial Dataset
-    if args.env not in locomotion_envs:
-        plot_states(dataset.observations, xlim, ylim, goal, f"{logdir}/{experiment_name}/dataset_initial.jpg")
+    #if args.env not in locomotion_envs:
+        #plot_states(dataset.observations, xlim, ylim, goal, f"{logdir}/{experiment_name}/dataset_initial.jpg")
 
     c_episodes = []
 
@@ -215,7 +217,7 @@ def main(args):
     #Train Policy
     print("======================================== TRAINING ACTIVE ========================================")
 
-    for epoch in range(args.active_epochs):
+    for epoch in tqdm(range(args.active_epochs)):
         print(f"---------------------------------------- EPOCH {epoch} ----------------------------------------")
         #Do Active Collection
         if args.num_samples > 0:
@@ -223,16 +225,16 @@ def main(args):
             c_episodes.extend(c_dataset.episodes)
 
             #Plot Total Collection
-            if args.env not in locomotion_envs:
-                plot_collection(dataset_from_episode_list(c_episodes), xlim, ylim, goal, f"{logdir}/{experiment_name}/total_collection_{epoch}.jpg")
+            #if args.env not in locomotion_envs:
+                #plot_collection(dataset_from_episode_list(c_episodes), xlim, ylim, goal, f"{logdir}/{experiment_name}/total_collection_{epoch}.jpg")
 
             #Plot Collection
-            if args.env not in locomotion_envs:
-                plot_collection(c_dataset, xlim, ylim, goal, f"{logdir}/{experiment_name}/collection_{epoch}.jpg")
+            #if args.env not in locomotion_envs:
+                #plot_collection(c_dataset, xlim, ylim, goal, f"{logdir}/{experiment_name}/collection_{epoch}.jpg")
 
             #Plot Buffer Evolution
-            if args.env not in locomotion_envs:
-                plot_buffer_evolution(dataset.observations, c_dataset.observations, xlim, ylim, goal, f"{logdir}/{experiment_name}/buffer_evolution_{epoch}.jpg")
+            #if args.env not in locomotion_envs:
+                #plot_buffer_evolution(dataset.observations, c_dataset.observations, xlim, ylim, goal, f"{logdir}/{experiment_name}/buffer_evolution_{epoch}.jpg")
             
             #Add to Dataset
             dataset.extend(c_dataset)
@@ -260,7 +262,8 @@ def main(args):
 
 
         #Train Uncertainty Model
-        replay_buffer = d3rlpy.online.buffers.ReplayBuffer(maxlen=int(5e6),
+        buffer = d3rlpy.dataset.InfiniteBuffer()
+        replay_buffer = d3rlpy.dataset.ReplayBuffer(buffer=buffer,
                                                             env=env,
                                                             episodes=dataset.episodes)
         uncertainty_model.fit(replay_buffer,
@@ -268,9 +271,11 @@ def main(args):
                                 n_steps=args.n_steps)
 
         #Plot Uncertainty
+        '''
         if args.env not in locomotion_envs:
             uncertainties = uncertainty_model.get_uncertainty_batched(active_states)
             plot_states_uncertainties(active_states.numpy(), uncertainties, xlim, ylim, goal, f"{logdir}/{experiment_name}/uncertainty_{epoch}.jpg")
+        '''
 
         
         #Save Uncertainty Model

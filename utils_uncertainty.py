@@ -1,4 +1,5 @@
 from utils_common import *
+from tqdm import tqdm
 
 #Model that predicts dynamics epsilon
 class DynamicsModel(nn.Module):
@@ -77,9 +78,9 @@ class UncertaintyModel(nn.Module):
 
 	def fit(self, replay_buffer: d3rlpy.dataset.ReplayBuffer, batch_size = 256, n_steps = int(1e5)):
 		#Train the models
-		for i in range(n_steps):
+		for i in tqdm(range(n_steps)):
 			#Sample a batch
-			batch = replay_buffer.sample(batch_size)
+			batch = replay_buffer.sample_transition_batch(batch_size)
 			self.update(batch)
 
 			# if (i+1)%5000 == 0:
@@ -316,8 +317,10 @@ class Collector:
 
 
 	def collect(self, states: torch.Tensor, current_dataset: d3rlpy.dataset.MDPDataset = None):
-		self.current_buffer = d3rlpy.online.buffers.ReplayBuffer(int(5e6), self.env, current_dataset.episodes) if current_dataset else None
-		self.collection_buffer = d3rlpy.online.buffers.ReplayBuffer(self.num_samples, self.env)
+		current_buffer = d3rlpy.dataset.InfiniteBuffer()
+		self.current_buffer = d3rlpy.dataset.ReplayBuffer(buffer=current_buffer, env=self.env, episodes=current_dataset.episodes) if current_dataset else None
+		collection_buffer = d3rlpy.dataset.InfiniteBuffer()
+		self.collection_buffer = d3rlpy.dataset.ReplayBuffer(buffer=collection_buffer, env=self.env)
 		
 		#Reset Counters
 		self.uncertain_actions = 0
