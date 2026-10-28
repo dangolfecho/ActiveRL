@@ -107,7 +107,7 @@ def main(args):
 
     experiment_name += f"_{args.seed}"
 
-    experiment_root = f"{logdir}/{experiment_name}/"
+    experiment_root = f"{logdir}/{experiment_name}"
 
     #Create Directory
     setup_directory(experiment_root)
@@ -237,28 +237,32 @@ def main(args):
                 #plot_buffer_evolution(dataset.observations, c_dataset.observations, xlim, ylim, goal, f"{logdir}/{experiment_name}/buffer_evolution_{epoch}.jpg")
             
             #Add to Dataset
-            dataset.extend(c_dataset)
+            for episode in c_episodes:
+                dataset.append_episode(episode)
+            #dataset.extend(c_dataset)
 
         #Train Policy
-        policy.fit(dataset.episodes,
+        policy.fit(dataset,
                     n_steps=args.n_steps,
                     n_steps_per_epoch=args.n_steps_per_epoch,
-                    eval_episodes=dataset.episodes,
+                    #eval_episodes=dataset.episodes,
                     #scorers=metrics,
-                    save_interval=10,
-                    logdir=f"{logdir}/{experiment_name}",
+                    save_interval=1,
+                    evaluators=evaluators,
+                    #logdir=f"{logdir}/{experiment_name}",
                     experiment_name=f"Epoch_{epoch}",
                     show_progress=args.show_progress,
                     #callback=lr_scheduler_step,
                     with_timestamp=False)
         
         #Save Policy
+        setup_directory(f"{logdir}/{experiment_name}/Epoch_{epoch}/")
         policy.save_model(f"{logdir}/{experiment_name}/Epoch_{epoch}/final.pt")
 
 
         #Plot the rewards
-        rewards = get_active_rewards(experiment_root)
-        plot_rewards(rewards, f"{experiment_root}/rewards_{epoch}.jpg", ma_window=5)
+        #rewards = get_active_rewards(experiment_root)
+        #plot_rewards(rewards, f"{experiment_root}/rewards_{epoch}.jpg", ma_window=5)
 
 
         #Train Uncertainty Model

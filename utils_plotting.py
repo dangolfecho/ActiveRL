@@ -15,7 +15,7 @@ def get_active_rewards(experiment_root: str, metric = "rewards_raw"):
     rewards = []
 
     for epoch in epochs:
-        epoch_rewards = pd.read_csv(f"{epoch}/{metric}.csv", header=None)[2].to_numpy().tolist()
+        epoch_rewards = pd.read_csv(f"{epoch}{metric}.csv", header=None)[2].to_numpy().tolist()
         rewards.extend(epoch_rewards)
 
     rewards = np.array(rewards)
