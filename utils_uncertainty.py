@@ -424,11 +424,9 @@ class Collector:
 
 
 				print(f"[ACTIVE UTIL] Collected: {n_collection} | RA: {self.random_actions} | PA: {self.policy_actions} | UA: {self.uncertain_actions} | Trained: {self.n_train}")
-				break
 
 				if to_collect<=0:
 					break
-			break
 			
 
 		print(f"[ACTIVE UTIL] Total Collection: {n_collection} | RA: {self.random_actions} | PA: {self.policy_actions} | UA: {self.uncertain_actions} | Trained: {self.n_train}")
