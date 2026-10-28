@@ -151,8 +151,7 @@ def main(args):
                                     batch_size=args.batch_size,
                                     weight_temp=args.weight_temp,
                                     max_weight=args.max_weight,
-                                    expectile=args.expectile,
-                                    reward_scaler=d3rlpy.preprocessing.ConstantShiftRewardScaler(shift=-1.0),).create()
+                                    expectile=args.expectile,).create()
                                     #use_gpu=args.device)
     
     #policy.create_impl(dataset.get_observation_shape(), dataset.get_action_size())
