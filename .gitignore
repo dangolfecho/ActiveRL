@@ -3,3 +3,4 @@ models/*
 IQL*/*
 *.npy
 *.swp
+d3rlpy_logs/*
