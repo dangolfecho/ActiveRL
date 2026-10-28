@@ -424,16 +424,18 @@ class Collector:
 
 
 				print(f"[ACTIVE UTIL] Collected: {n_collection} | RA: {self.random_actions} | PA: {self.policy_actions} | UA: {self.uncertain_actions} | Trained: {self.n_train}")
+				break
 
 				if to_collect<=0:
 					break
+			break
 			
 
 		print(f"[ACTIVE UTIL] Total Collection: {n_collection} | RA: {self.random_actions} | PA: {self.policy_actions} | UA: {self.uncertain_actions} | Trained: {self.n_train}")
 
 		#Create d3rlpy dataset
-		collected_dataset = self.collection_buffer.to_mdp_dataset()
-		return collected_dataset
+		#collected_dataset = self.collection_buffer.to_mdp_dataset()
+		return self.collection_buffer
 
 
 
