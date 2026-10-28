@@ -1,5 +1,7 @@
 from utils_common import *
 from tqdm import tqdm
+import PyFlyt.gym_envs
+import gymnasium as gym
 
 #Model that predicts dynamics epsilon
 class DynamicsModel(nn.Module):
@@ -223,11 +225,41 @@ class Collector:
 
 	def _collect_trajectory(self, state: np.ndarray, to_collect: int):
 		n_collection = 0
+		print(state)#ang (vel, pos), lin (vel, pos), action, aux_state
+		#0,1,2   3,4,5,6      7,8,9  ,10,11,12  13,14,15,16  17,18,19,20
+		active_rl_override = True
+		adaptive_train_flag = False
+		pos_orn_flag = 1
+		flag = 0
+		mode = 2
+		lower_bound = 0.0
+		upper_bound = 80*(3.14/180)
+		flight_dome_size = 150
+		reward_flag = 0
+		Z = 10.0
+		start_pos_dict = {"x": state[10], "y": state[11], "z": state[12]}
+		start_orn_dict = {"r": state[3], "p": state[4], "y": state[5], "a": state[6]}
+		goal_state_dict = {"x": 0.0, "y": 0.0, "z": Z}
+		sparse_reward = 0
 		
-
-		sim_state = get_sim_state(self.env, state)
-		self.env.sim.set_state(sim_state)
-
+		env = gym.make("PyFlyt/QuadX-Hover-v4",
+			active_rl_override=active_rl_override,
+			adaptive_train_flag=adaptive_train_flag,
+			pos_orn_flag=pos_orn_flag,
+			flag=flag,
+			mode=mode,
+			lower_bound=lower_bound,
+			upper_bound=upper_bound,
+			flight_dome_size=flight_dome_size,
+			sparse_reward=sparse_reward,
+			max_duration_seconds=10,
+			start_pos_dict=start_pos_dict,
+			start_orn_dict=start_orn_dict,
+			goal_state_dict=goal_state_dict,
+		)
+		#sim_state = get_sim_state(self.env, state)
+		#self.env.sim.set_state(sim_state)
+		obs, _ = env.reset()
 		current_unc = float("inf")
 
 		#Collect Trajectory
@@ -278,7 +310,11 @@ class Collector:
 			else:
 				raise ValueError
 			
-			next_state, reward, done, _ = self.env.step(action)
+			next_state, reward, terminated, truncated, _ = self.env.step(action)
+			if(terminated or truncated):
+				done = True
+			else:
+				done = False
 			episode_terminal = done
 
 			to_collect -= 1
@@ -299,12 +335,13 @@ class Collector:
 			if n_collection >= self.trajectory_size:
 				episode_terminal = True
 
-			self.collection_buffer.append(state, action, reward, done, episode_terminal)
+			#self.collection_buffer.append(state, action, reward, done, episode_terminal)
+			self.collection_buffer.append(state, action, reward)
 			state = next_state
 
 			if self.current_buffer is not None and self.collection_buffer.size() >= 128:
-				current_batch = self.current_buffer.sample(batch_size = 256 + 128)
-				collection_batch = self.collection_buffer.sample(batch_size = 128)
+				current_batch = self.current_buffer.sample_transition_batch(batch_size = 256 + 128)
+				collection_batch = self.collection_buffer.sample_transition_batch(batch_size = 128)
 
 				mixed_batch = d3rlpy.dataset.TransitionMiniBatch(collection_batch.transitions + current_batch.transitions)
 				self.unc_model.update(mixed_batch)
@@ -363,7 +400,7 @@ class Collector:
 						selected_states = candidate_states[:self.selection_size]
 						self.trajectory_size = self.config_trajectory_size
 					else:
-						selected_states = torch.from_numpy(np.stack([self.env.reset() for _ in range(self.selection_size)])).float()
+						selected_states = torch.from_numpy(np.stack([(self.env.reset())[0] for _ in range(self.selection_size)])).float()
 						self.trajectory_size = 1000
 
 			#RANDOM: Pick the first states
@@ -373,7 +410,7 @@ class Collector:
 
 			#INITIAL: Pick the initial states
 			elif self.collection_method == 'initial':
-				selected_states = torch.from_numpy(np.stack([self.env.reset() for _ in range(self.selection_size)])).float()
+				selected_states = torch.from_numpy(np.stack([(self.env.reset())[0] for _ in range(self.selection_size)])).float()
 			else:
 				raise ValueError
 			
