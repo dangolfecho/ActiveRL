@@ -4,3 +4,4 @@ IQL*/*
 *.npy
 *.swp
 d3rlpy_logs/*
+*.tar.gz
