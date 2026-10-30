@@ -225,7 +225,7 @@ class Collector:
 
 	def _collect_trajectory(self, state: np.ndarray, to_collect: int):
 		n_collection = 0
-		print(state)#ang (vel, pos), lin (vel, pos), action, aux_state
+		#print(state)#ang (vel, pos), lin (vel, pos), action, aux_state
 		#0,1,2   3,4,5,6      7,8,9  ,10,11,12  13,14,15,16  17,18,19,20
 		active_rl_override = True
 		adaptive_train_flag = False
@@ -237,6 +237,10 @@ class Collector:
 		flight_dome_size = 150
 		reward_flag = 0
 		Z = 10.0
+		#print(f"Ang Vel {state[0]}, {state[1]}, {state[2]}")
+		#print(f"Ang Pos {state[3]}, {state[4]}, {state[5]} {state[6]}")
+		#print(f"Lin Vel {state[7]}, {state[8]}, {state[9]}")
+		#print(f"Lin Pos {state[10]}, {state[11]}, {state[12]}")
 		start_pos_dict = {"x": state[10], "y": state[11], "z": state[12]}
 		start_orn_dict = {"r": state[3], "p": state[4], "y": state[5], "a": state[6]}
 		goal_state_dict = {"x": 0.0, "y": 0.0, "z": Z}
@@ -267,7 +271,7 @@ class Collector:
 		while not done:
 			#RANDOM: Pick actions randomly (Uniformly)
 			if 'random' in self.collection_policy:
-				action = self.env.action_space.sample()
+				action = env.action_space.sample()
 				self.random_actions += 1
 
 			#POLICY: Pick actions from the policy
@@ -310,9 +314,12 @@ class Collector:
 			else:
 				raise ValueError
 			
-			next_state, reward, terminated, truncated, _ = self.env.step(action)
+			next_state, reward, terminated, truncated, _ = env.step(action)
 			if(terminated or truncated):
 				done = True
+				#print("HI")
+				#print("Terminated: ", terminated)
+				#print("Truncated: ", truncated)
 			else:
 				done = False
 			episode_terminal = done
@@ -349,15 +356,18 @@ class Collector:
 
 			if episode_terminal:
 				break
-
+		#print("Trajectory_Size", n_collection)
 		return n_collection
 
 
 	def collect(self, states: torch.Tensor, current_dataset: d3rlpy.dataset.MDPDataset = None):
 		current_buffer = d3rlpy.dataset.InfiniteBuffer()
-		self.current_buffer = d3rlpy.dataset.ReplayBuffer(buffer=current_buffer, env=self.env, episodes=current_dataset.episodes) if current_dataset else None
+		self.current_buffer = d3rlpy.dataset.ReplayBuffer(buffer=current_buffer, env=self.env, episodes=current_dataset.episodes, cache_size=40000000) if current_dataset else None
 		collection_buffer = d3rlpy.dataset.InfiniteBuffer()
-		self.collection_buffer = d3rlpy.dataset.ReplayBuffer(buffer=collection_buffer, env=self.env)
+		self.collection_buffer = d3rlpy.dataset.ReplayBuffer(buffer=collection_buffer,
+					env=self.env,
+					cache_size=10000000,
+					)
 		
 		#Reset Counters
 		self.uncertain_actions = 0
@@ -384,6 +394,8 @@ class Collector:
 		#Collection Arrays
 
 		while to_collect>0:
+			#print("Number collected", n_collection)
+			#print("Yet to be collected", to_collect)
 			#Sample Candidate States
 			candidate_states = states[np.random.permutation(states.shape[0])[:self.candidate_size]].to(self.unc_model.device)
 
