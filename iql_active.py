@@ -151,7 +151,7 @@ def main(args):
                                     batch_size=args.batch_size,
                                     weight_temp=args.weight_temp,
                                     max_weight=args.max_weight,
-                                    expectile=args.expectile,).create()
+                                    expectile=args.expectile,).create(device=device)
                                     #use_gpu=args.device)
     
     #policy.create_impl(dataset.get_observation_shape(), dataset.get_action_size())
@@ -236,7 +236,7 @@ def main(args):
                 #plot_buffer_evolution(dataset.observations, c_dataset.observations, xlim, ylim, goal, f"{logdir}/{experiment_name}/buffer_evolution_{epoch}.jpg")
             
             #Add to Dataset
-            for episode in c_episodes:
+            for episode in c_dataset.episodes:
                 dataset.append_episode(episode)
             #dataset.extend(c_dataset)
 
