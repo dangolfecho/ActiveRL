@@ -2,6 +2,7 @@ from utils_common import *
 from tqdm import tqdm
 import PyFlyt.gym_envs
 import gymnasium as gym
+import d3rlpy
 
 #Model that predicts dynamics epsilon
 class DynamicsModel(nn.Module):
