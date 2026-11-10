@@ -21,7 +21,7 @@ def parse_args():
     parser.add_argument("--num_models", default=5, type=int)
 
     #Training Parameters
-    parser.add_argument("--n_steps", default=int(1e6), type=int)
+    parser.add_argument("--n_steps", default=int(5e6), type=int)
     parser.add_argument("--n_steps_per_epoch", default=10000, type=int)
     parser.add_argument("--batch_size", default=256, type=int)
 
